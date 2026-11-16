@@ -134,7 +134,7 @@ impl Rasterizer {
             // inverting RGB yields a dark canvas with light ink while keeping
             // alpha untouched. Pixels are opaque, so premultiplied data from
             // tiny-skia is already straight.
-            for pixel in pixels.chunks_exact_mut(4) {
+            for pixel in pixels.as_chunks_mut::<4>().0 {
                 pixel[0] = 255 - pixel[0];
                 pixel[1] = 255 - pixel[1];
                 pixel[2] = 255 - pixel[2];
