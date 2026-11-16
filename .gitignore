@@ -1,0 +1,9 @@
+/target/
+/dist/
+/renderer/node_modules/
+/renderer/.npm/
+/renderer/worker.bundle.mjs
+*.tgz
+.qoder/settings.local.json
+.DS_Store
+*.log

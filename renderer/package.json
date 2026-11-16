@@ -1,0 +1,21 @@
+{
+  "name": "excalidraw-tui-renderer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Long-lived Excalidraw JSON -> SVG converter for exv",
+  "scripts": {
+    "bundle": "node build.mjs",
+    "smoke": "node ../scripts/renderer-smoke.mjs"
+  },
+  "engines": {
+    "node": ">=22.22.2"
+  },
+  "dependencies": {
+    "@excalidraw/utils": "0.1.8",
+    "jsdom": "^31.0.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "excalidraw-tui-test",
+  "elements": [
+    {
+      "id": "start",
+      "type": "rectangle",
+      "x": 40,
+      "y": 80,
+      "width": 220,
+      "height": 110,
+      "strokeColor": "#1971c2",
+      "backgroundColor": "#a5d8ff",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "roughness": 1
+    },
+    {
+      "id": "start-label",
+      "type": "text",
+      "x": 70,
+      "y": 115,
+      "text": "中文起点",
+      "fontSize": 24,
+      "fontFamily": 1,
+      "strokeColor": "#1971c2",
+      "containerId": "start"
+    },
+    {
+      "id": "next",
+      "type": "rectangle",
+      "x": 520,
+      "y": 80,
+      "width": 220,
+      "height": 110,
+      "strokeColor": "#2f9e44",
+      "backgroundColor": "#b2f2bb",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "roughness": 1
+    },
+    {
+      "id": "next-label",
+      "type": "text",
+      "x": 550,
+      "y": 115,
+      "text": "中文终点",
+      "fontSize": 24,
+      "fontFamily": 1,
+      "strokeColor": "#2f9e44",
+      "containerId": "next"
+    },
+    {
+      "id": "link",
+      "type": "arrow",
+      "x": 260,
+      "y": 135,
+      "points": [
+        [0, 0],
+        [260, 0]
+      ],
+      "strokeColor": "#1e1e1e",
+      "strokeWidth": 2,
+      "roughness": 1
+    },
+    {
+      "id": "note",
+      "type": "text",
+      "x": 260,
+      "y": 300,
+      "text": "手绘箭头与中文字体渲染测试",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e"
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff"
+  }
+}

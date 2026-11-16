@@ -1,0 +1,210 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish packages to npm (leave off for a dry run)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read and validate version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)"
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "tag $GITHUB_REF_NAME does not match Cargo.toml version v$version" >&2
+            exit 1
+          fi
+
+  build:
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            target: x86_64-unknown-linux-musl
+            slug: linux-x64
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            slug: linux-arm64
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+            slug: darwin-x64
+          - runner: macos-15
+            target: aarch64-apple-darwin
+            slug: darwin-arm64
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            slug: win32-x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install musl tools
+        if: contains(matrix.target, '-linux-musl')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - name: Build release binary
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Smoke test (Unix)
+        if: runner.os != 'Windows'
+        run: ./target/${{ matrix.target }}/release/exv --help
+
+      - name: Smoke test (Windows)
+        if: runner.os == 'Windows'
+        run: .\target\${{ matrix.target }}\release\exv.exe --help
+
+      - name: Verify static Linux binary
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          binary="target/${{ matrix.target }}/release/exv"
+          file "$binary"
+          if readelf -d "$binary" | grep -q NEEDED; then
+            echo "error: $binary is dynamically linked" >&2
+            readelf -d "$binary"
+            exit 1
+          fi
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: exv-${{ matrix.slug }}
+          path: target/${{ matrix.target }}/release/exv${{ endsWith(matrix.target, 'windows-msvc') && '.exe' || '' }}
+          if-no-files-found: error
+          retention-days: 7
+
+  package:
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: renderer/package-lock.json
+
+      - name: Install renderer dependencies
+        run: npm ci --prefix renderer
+
+      - name: Bundle renderer
+        run: npm run bundle --prefix renderer
+
+      - name: Download platform binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: exv-*
+          path: artifacts
+
+      - name: Assemble npm packages
+        run: node scripts/prepare-npm.mjs --binaries artifacts --pack
+
+      - name: Upload npm tarballs
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-tarballs
+          path: dist/npm/tarballs/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: [validate, package]
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish)
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Use an npm CLI with trusted publishing support
+        run: npm install --global npm@^11.5.1
+
+      - name: Download npm tarballs
+        uses: actions/download-artifact@v4
+        with:
+          name: npm-tarballs
+          path: dist/npm/tarballs
+
+      - name: Configure npm authentication
+        shell: bash
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${NPM_TOKEN:-}" ]]; then
+            printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > "$HOME/.npmrc"
+            echo "Publishing with NPM_TOKEN"
+          else
+            echo "Publishing with npm trusted publishing (OIDC)"
+          fi
+
+      - name: Publish platform packages, then main package
+        shell: bash
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          main="dist/npm/tarballs/excalidraw-tui-${VERSION}.tgz"
+          test -f "$main"
+          mapfile -t platforms < <(
+            find dist/npm/tarballs -maxdepth 1 -name '*.tgz' \
+              ! -name "excalidraw-tui-${VERSION}.tgz" -print | sort
+          )
+          if [[ "${#platforms[@]}" -ne 5 ]]; then
+            echo "expected 5 platform tarballs, found ${#platforms[@]}" >&2
+            exit 1
+          fi
+
+          publish() {
+            local tarball="$1"
+            local package_name
+            package_name="$(basename "$tarball" .tgz)"
+            package_name="${package_name%-${VERSION}}"
+            if npm view "${package_name}@${VERSION}" version >/dev/null 2>&1; then
+              echo "${package_name}@${VERSION} is already published; skipping"
+            else
+              npm publish "$tarball" --access public --provenance
+            fi
+          }
+
+          for tarball in "${platforms[@]}"; do
+            publish "$tarball"
+          done
+          publish "$main"

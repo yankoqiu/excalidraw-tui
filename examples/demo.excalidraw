@@ -1,0 +1,162 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "elements": [
+    {
+      "id": "title",
+      "type": "text",
+      "x": 60,
+      "y": 30,
+      "width": 480,
+      "height": 40,
+      "text": "exv 实时预览示例",
+      "originalText": "exv 实时预览示例",
+      "fontSize": 32,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "left"
+    },
+    {
+      "id": "cli",
+      "type": "rectangle",
+      "x": 60,
+      "y": 120,
+      "width": 220,
+      "height": 100,
+      "strokeColor": "#1971c2",
+      "backgroundColor": "#a5d8ff",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      }
+    },
+    {
+      "id": "cli-text",
+      "type": "text",
+      "x": 100,
+      "y": 155,
+      "width": 140,
+      "height": 28,
+      "text": "AI Agent",
+      "originalText": "AI Agent",
+      "fontSize": 24,
+      "fontFamily": 1,
+      "strokeColor": "#1971c2",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "cli"
+    },
+    {
+      "id": "watch",
+      "type": "arrow",
+      "x": 290,
+      "y": 170,
+      "width": 160,
+      "height": 0,
+      "points": [
+        [0, 0],
+        [160, 0]
+      ],
+      "strokeColor": "#1e1e1e",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "endArrowhead": "arrow"
+    },
+    {
+      "id": "edge",
+      "type": "diamond",
+      "x": 460,
+      "y": 110,
+      "width": 240,
+      "height": 120,
+      "strokeColor": "#e8590c",
+      "backgroundColor": "#ffec99",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "roughness": 1
+    },
+    {
+      "id": "edge-text",
+      "type": "text",
+      "x": 510,
+      "y": 155,
+      "width": 150,
+      "height": 28,
+      "text": "写入 .excalidraw",
+      "originalText": "写入 .excalidraw",
+      "fontSize": 22,
+      "fontFamily": 1,
+      "strokeColor": "#e8590c",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "edge"
+    },
+    {
+      "id": "pipe",
+      "type": "arrow",
+      "x": 710,
+      "y": 170,
+      "width": 150,
+      "height": 0,
+      "points": [
+        [0, 0],
+        [150, 0]
+      ],
+      "strokeColor": "#1e1e1e",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "endArrowhead": "arrow"
+    },
+    {
+      "id": "render",
+      "type": "ellipse",
+      "x": 870,
+      "y": 100,
+      "width": 260,
+      "height": 140,
+      "strokeColor": "#2f9e44",
+      "backgroundColor": "#b2f2bb",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "roughness": 1
+    },
+    {
+      "id": "render-text",
+      "type": "text",
+      "x": 910,
+      "y": 155,
+      "width": 180,
+      "height": 28,
+      "text": "终端高清渲染",
+      "originalText": "终端高清渲染",
+      "fontSize": 22,
+      "fontFamily": 1,
+      "strokeColor": "#2f9e44",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "render"
+    },
+    {
+      "id": "footnote",
+      "type": "text",
+      "x": 60,
+      "y": 300,
+      "width": 640,
+      "height": 26,
+      "text": "快捷键：hjkl 平移 | +/- 缩放 | 0 重置 | q 退出",
+      "originalText": "快捷键：hjkl 平移 | +/- 缩放 | 0 重置 | q 退出",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "strokeColor": "#868e96",
+      "textAlign": "left"
+    }
+  ],
+  "files": {},
+  "appState": {
+    "gridSize": null,
+    "viewBackgroundColor": "#ffffff"
+  }
+}
