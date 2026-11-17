@@ -13,7 +13,10 @@ use clap::{Parser, ValueEnum};
 use crossterm::{
     cursor::{Hide, Show},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{
+        disable_raw_mode, enable_raw_mode, EndSynchronizedUpdate, EnterAlternateScreen,
+        LeaveAlternateScreen,
+    },
 };
 use excalidraw_tui::{
     converter::{self, Converter},
@@ -293,7 +296,12 @@ impl TerminalSession {
 impl Drop for TerminalSession {
     fn drop(&mut self) {
         let _ = disable_raw_mode();
-        let _ = execute!(io::stdout(), Show, LeaveAlternateScreen);
+        let _ = execute!(
+            io::stdout(),
+            EndSynchronizedUpdate,
+            Show,
+            LeaveAlternateScreen
+        );
     }
 }
 

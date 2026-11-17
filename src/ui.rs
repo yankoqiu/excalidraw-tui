@@ -12,8 +12,10 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use crossterm::event::{
-    self, Event as CrosstermEvent, KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
+use crossterm::{
+    event::{self, Event as CrosstermEvent, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
+    execute,
+    terminal::{BeginSynchronizedUpdate, EndSynchronizedUpdate},
 };
 use ratatui::{
     backend::CrosstermBackend,
@@ -135,13 +137,33 @@ impl App {
             if self.quit {
                 break;
             }
-            if self.dirty {
-                self.dirty = false;
-                terminal.draw(|frame| self.draw(frame))?;
-            }
-            if event::poll(POLL_INTERVAL).context("failed to poll terminal events")? {
+
+            let timeout = if self.dirty {
+                Duration::ZERO
+            } else {
+                POLL_INTERVAL
+            };
+            if event::poll(timeout).context("failed to poll terminal events")? {
                 let event = event::read().context("failed to read terminal event")?;
                 self.handle_terminal_event(event);
+                // A held key queues repeats while the previous frame is
+                // rasterized and encoded; fold a burst into one final frame.
+                for _ in 0..64 {
+                    if self.quit || !event::poll(Duration::ZERO).context("failed to poll events")? {
+                        break;
+                    }
+                    let event = event::read().context("failed to read terminal event")?;
+                    self.handle_terminal_event(event);
+                }
+            }
+
+            if self.quit {
+                break;
+            }
+            self.poll_background();
+            if self.dirty {
+                self.dirty = false;
+                draw_synchronized(terminal, |frame| self.draw(frame))?;
             }
         }
         Ok(())
@@ -481,6 +503,21 @@ impl App {
 
         Paragraph::new(line)
     }
+}
+
+fn draw_synchronized(
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    draw: impl FnOnce(&mut Frame),
+) -> Result<()> {
+    // DEC mode 2026 lets terminals present the whole frame atomically, so
+    // large image updates do not flash intermediate cell states.
+    execute!(terminal.backend_mut(), BeginSynchronizedUpdate)
+        .context("failed to begin synchronized update")?;
+    let result = terminal.draw(draw).map(|_| ());
+    let end = execute!(terminal.backend_mut(), EndSynchronizedUpdate)
+        .context("failed to end synchronized update");
+    result?;
+    end
 }
 
 fn count_elements(value: &Value) -> usize {
