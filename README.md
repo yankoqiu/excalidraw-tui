@@ -7,8 +7,14 @@ Preview and convert Excalidraw diagrams from the terminal. Point `exv` at an
 leaving the shell. Add `--watch` to refresh the terminal preview as an AI coding
 agent writes.
 
+![exv previewing the system-design diagram in Windows Terminal](docs/images/terminal-preview.png)
+
+`exv --watch` showing [`system-design.excalidraw`](system-design.excalidraw) in
+Windows Terminal via Sixel. Full-size [PNG](docs/images/system-design.png) ·
+[SVG](docs/images/system-design.svg).
+
 ```text
-demo.excalidraw | 120% | 10 elements | kitty | Ready | hjkl pan  +/- zoom  0 reset  q quit
+demo.excalidraw | 120% | 10 elements | kitty | ready | hjkl pan  +/- zoom  0 reset  q quit
 ```
 
 ## Why
@@ -18,6 +24,9 @@ demo.excalidraw | 120% | 10 elements | kitty | Ready | hjkl pan  +/- zoom  0 res
   explicitly request with `--format` is written; there are no cache files.
 - **Resident renderer.** One Node/Bun process loads the Excalidraw renderer once
   and converts documents over newline-delimited JSON-RPC, so reloads are fast.
+- **Flicker-free updates.** Interactive frames are wrapped in DEC private mode
+  2026 synchronized output when the terminal supports it, and bursts of key
+  repeats are folded into one redraw. Unsupported terminals ignore the mode.
 - **Atomic-save aware.** Editors and agents often write a temp file and rename
   it. With `--watch`, `exv` watches the parent directory, debounces 300 ms,
   validates JSON, and keeps the last good frame or export while a write is
@@ -41,21 +50,14 @@ published packages: they contain a prebuilt `exv` binary and a bundled renderer.
 | --- | --- |
 | Kitty, Ghostty, WezTerm | Kitty graphics protocol |
 | iTerm2, foot, mlterm, WezTerm | Sixel |
-| Zed / Herdr panes | host-terminal protocol if passed through |
+| Zed panes | host-terminal protocol if passed through |
 | Anything else | Unicode half-blocks fallback |
 
 Use `--protocol` if auto-detection guesses wrong.
 
 ## Install
 
-Run once without installing globally:
-
-```sh
-npx --yes excalidraw-tui@latest --watch diagram.excalidraw
-npx --yes excalidraw-tui@latest diagram.excalidraw --format png
-```
-
-Or install the `exv` command globally:
+Install the `exv` command globally:
 
 ```sh
 npm install -g excalidraw-tui
@@ -72,62 +74,20 @@ dependencies:
 | Windows | x64 | native |
 
 Keep optional dependencies enabled. Installing with `--omit=optional` removes
-the platform binary and `exv` will explain how to reinstall.
+the platform binary and `exv` will explain how to reinstall. The bundled
+renderer makes a complete install roughly 30 MB unpacked; see
+[Performance and footprint](#performance-and-footprint).
 
 Updating:
 
 ```sh
-npx --yes excalidraw-tui@latest --watch diagram.excalidraw  # always fetch the latest release
-npm update -g excalidraw-tui                                # update a global install
+npm update -g excalidraw-tui
 ```
 
-If no prebuilt binary exists for your OS or architecture, build from source or
-set `EXV_BIN` to a custom `exv` binary.
-
-### From source
-
-This path is intended for development and unsupported platforms. It requires
-Rust 1.88+ and Node.js >= 22.22.2.
-
-```sh
-git clone https://github.com/iam-yanko/excalidraw-tui.git
-cd excalidraw-tui
-./install.sh
-```
-
-`install.sh` runs `cargo build --release --locked`, installs the binary and
-renderer to `${PREFIX:-$HOME/.local}/share/excalidraw-tui/`, and symlinks `exv`
-into `${BIN_DIR:-$PREFIX/bin}`. It copies existing `renderer/node_modules` when
-present, otherwise installs production dependencies with Bun or npm.
-
-Overrides:
-
-```sh
-PREFIX=/usr/local ./install.sh
-BIN_DIR="$HOME/bin" ./install.sh
-EXV_FORCE_DEPS=1 ./install.sh   # reinstall renderer dependencies
-```
-
-Manual build:
-
-```sh
-npm ci --prefix renderer
-cargo build --release --locked
-./target/release/exv examples/demo.excalidraw
-```
-
-On Windows PowerShell:
-
-```powershell
-npm ci --prefix renderer
-cargo build --release --locked
-.\target\release\exv.exe examples\demo.excalidraw
-```
-
-The binary locates the renderer next to itself, in `../share/excalidraw-tui/`,
-or in this repository's `renderer/`. Set `EXV_RENDERER` to an explicit
-`worker.mjs` path if your layout differs. Set `EXV_JS_RUNTIME` to force a
-specific Node or Bun executable. The npm launcher sets both automatically.
+If no prebuilt binary exists for your OS or architecture, `exv` prints an
+unsupported-platform error. For advanced setups, `EXV_BIN` can point the
+launcher at a compatible binary, `EXV_RENDERER` at a custom `worker.mjs`, and
+`EXV_JS_RUNTIME` at a specific Node or Bun executable.
 
 ## Usage
 
@@ -161,9 +121,10 @@ must exist, and `exv` waits until the first valid save. Atomic rename saves are
 detected. Preview mode requires stdin and stdout to be a TTY; export mode works
 in scripts and CI.
 
-SVG export writes the renderer's vector output unchanged. PNG export rasterizes
-the complete diagram at its intrinsic size times `--scale`, applies `--theme`,
-and enforces the same 40-million-pixel memory cap as the preview.
+SVG export writes the renderer's vector output with font stacks normalized to
+available system CJK fonts. PNG export rasterizes the complete diagram at its
+intrinsic size times `--scale`, applies `--theme`, and enforces the same
+40-million-pixel memory cap as the preview.
 
 ### Keys
 
@@ -205,40 +166,14 @@ Example prompt:
 > Create `architecture.excalidraw` showing the request path from CLI to database.
 > Keep it under 10 nodes and validate the JSON. I will preview it with exv.
 
-## Herdr integration
-
-`herdr-plugin.toml` exposes a popup pane and a `preview` action. Install `exv`
-globally so the pane script can find it on `PATH`:
-
-```sh
-npm install -g excalidraw-tui
-herdr plugin link "$PWD"     # link this checkout as a local plugin
-herdr plugin action invoke excalidraw-tui.preview
-```
-
-The pane script (`scripts/herdr-preview.sh`) uses `EXV_FILE` when set, otherwise
-searches the workspace described by `HERDR_PLUGIN_CONTEXT_JSON` for the newest
-`.excalidraw` file. It falls back to `diagram.excalidraw` in the plugin
-directory. `EXV_BIN` can point at a non-PATH binary. Bind the action to a key in
-your Herdr config if you use it often.
-
 ## How it works
 
-```text
- .excalidraw file
-      │  optional parent-dir watch, 300 ms debounce, JSON validity gate
-      ▼
- Rust TUI (ratatui + crossterm)
-      │  {"id":N,"json":"..."} over stdin
-      ▼
- resident Node/Bun worker (bundled @excalidraw/utils + jsdom shims)
-      │  {"id":N,"svg":"...","elements":N} over stdout
-      ▼
- resvg/usvg vector tree + system CJK font fallback
-      │  viewport-sized RGBA pixmap (zoom/pan applied here)
-      ▼
- ratatui-image → Kitty / Sixel / half-blocks → terminal
-```
+![exv architecture: from a file save to terminal pixels](docs/images/architecture.png)
+
+A save is converted to SVG once, rasterized only for the visible viewport, and
+committed to the terminal inside a synchronized frame. Pan and zoom reuse the
+parsed SVG. [SVG](docs/images/architecture.svg) ·
+[editable `.excalidraw` source](docs/diagrams/architecture.excalidraw).
 
 | Path | Role |
 | --- | --- |
@@ -251,13 +186,15 @@ your Herdr config if you use it often.
 | `renderer/worker.mjs` | jsdom environment, element normalization, `exportScene` |
 | `npm/cli.js` | Selects the platform binary and launches it with inherited stdio |
 | `scripts/prepare-npm.mjs` | Assembles and validates the npm tarballs |
-| `tests/` | Chinese full pipeline, worker error recovery, atomic rename |
+| `tests/` | Chinese pipeline, export CLI, worker error recovery, atomic rename |
 
 The renderer is bundled with esbuild into one file before publishing, so users
 do not download `@excalidraw/utils`, jsdom, or their dependency tree. Preview
 mode rasterizes only the visible viewport, and the SVG is parsed once per file
 change, so zooming and panning do not invoke the JavaScript worker again.
-Export mode rasterizes the complete diagram once per save.
+Interactive frames use DEC 2026 synchronized output and coalesce queued input
+events, so the terminal sees complete frames instead of intermediate cell
+states. Export mode rasterizes the complete diagram once per save.
 
 ### Zero-disk and process-lifecycle guarantees
 
@@ -267,7 +204,39 @@ Export mode rasterizes the complete diagram once per save.
 - `Converter::drop` closes stdin, kills the child, and waits for it. Unix
   builds also convert `SIGHUP`/`SIGINT`/`SIGQUIT`/`SIGTERM` into an orderly quit.
 - Terminal raw mode and the alternate screen are restored by RAII, including on
-  errors.
+  errors; synchronized updates are closed on exit as well.
+
+## Performance and footprint
+
+Measured on Windows 11 with Node 26 and a 49-element diagram using a release
+build after warm-up. Treat these as ballpark figures: diagram complexity,
+terminal protocol, and window size all move them.
+
+![Measured performance and footprint of exv](docs/images/perf-overview.en.png)
+
+The same numbers as the tables below, plus the frame pipeline after the flicker
+fix. [SVG](docs/images/perf-overview.en.svg) ·
+[editable `.excalidraw` source](docs/diagrams/perf-overview.en.excalidraw).
+
+| Path | Measured |
+| --- | --- |
+| Renderer startup | ~1 s with the bundled renderer; 1.4–1.8 s from `node_modules` |
+| File change → SVG (49 elements) | ~20 ms warm; ~0.5 s for 2,000 synthetic elements |
+| Viewport rasterization (800×600 / 1600×900 / 2560×1440) | 5.2 / 9.2 / 16.2 ms |
+| Full-diagram PNG raster (1444×1046) | 16.7 ms |
+| End-to-end SVG/PNG export | ~1.4 s including worker startup |
+| Idle working set | ~11 MB (`exv`) + ~8 MB (worker, trimmable) |
+| Peak worker memory during a PNG export | ~171 MB (jsdom + Excalidraw) |
+
+Zoom and pan never re-enter JavaScript: the SVG is parsed once per file change
+and only the visible viewport is rasterized.
+
+| Component | Size |
+| --- | --- |
+| `exv` binary | ~5.3 MB (stripped, thin LTO) |
+| Bundled renderer | ~24.6 MB |
+| npm install, main + platform package | ~30 MB unpacked |
+| Development `renderer/node_modules` | ~129 MB, never shipped |
 
 ## Development
 
@@ -309,12 +278,11 @@ Tarballs land in `dist/npm/tarballs/`; the script validates their contents with
 | Chinese labels are squares | Install a CJK system font such as Noto Sans CJK SC or Source Han Sans; the rasterizer falls back across installed fonts |
 | `Node.js >=22.22.2 is required` | Upgrade Node; the renderer depends on a modern jsdom |
 | Platform package is missing | Reinstall without `--omit=optional`; check `npm config get omit`, then run `npm install -g excalidraw-tui@latest` |
-| `unsupported platform ...` | Use a supported platform, build from source, or point `EXV_BIN` at a custom binary |
+| `unsupported platform ...` | Use a supported platform or point `EXV_BIN` at a compatible binary |
 | `must run in an interactive terminal` | Preview mode needs a TTY; use `--format svg\|png` to export from scripts or CI |
 | `waiting for ...` forever | `--watch` needs the parent directory to exist; save valid JSON to the exact path |
 | `Syncing...` stuck | The file currently has invalid/truncated JSON; run `jq . file.excalidraw` |
-| Renderer fails to start | Check `node --version`; for source builds run `npm ci --prefix renderer`; or set `EXV_RENDERER` |
-| `exv` not found with Herdr | Use a global npm install so the pane script can resolve `exv` from `PATH` |
+| Renderer fails to start | Check `node --version`; reinstall `excalidraw-tui`; or set `EXV_RENDERER` |
 | Garbled or misplaced image | Try `--protocol halfblocks` first, then `sixel` / `kitty`; some terminals misreport font cell size |
 | Image does not update | Start the preview with `--watch`; the watcher filters by filename and watches the parent directory |
 | `--watch only applies to the terminal preview` | Export commands run once; remove `--watch` when using `--format` |
@@ -327,9 +295,8 @@ Tarballs land in `dist/npm/tarballs/`; the script validates their contents with
   CJK fallback.
 - Image elements render only when their base64 data is present in `files`.
 - Very large documents are capped at 40 million raster pixels to protect memory.
-- Prebuilt npm binaries cover Linux x64/arm64, macOS x64/arm64, and Windows x64.
-  Windows arm64 users need a source build or `EXV_BIN`.
-- The Herdr plugin shell entrypoint targets Linux and macOS.
+- Prebuilt npm binaries cover Linux x64/arm64, macOS x64/arm64, and Windows x64;
+  Windows arm64 is not covered.
 
 ## License
 
