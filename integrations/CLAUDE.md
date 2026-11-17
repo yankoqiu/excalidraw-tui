@@ -121,15 +121,15 @@ Rules for bindings:
 2. If `exv` is on PATH, tell the user it is available:
 
    ```sh
-   exv diagram.excalidraw
+   exv --watch diagram.excalidraw
    ```
 
    Do not block an agent turn on this interactive command. The user runs it in
-   a terminal pane; `exv` watches the file and updates automatically.
+   a terminal pane; with `--watch`, `exv` updates automatically.
 
 3. Prefer atomic saves when editing an existing file: write a sibling temp file
-   and rename it over the target. `exv` watches the parent directory, so both
-   plain writes and rename-based saves are detected.
+   and rename it over the target. `--watch` monitors the parent directory, so
+   both plain writes and rename-based saves are detected.
 
 4. A truncated or invalid write is harmless for the preview: the last good
    frame stays visible and the status bar shows `Syncing...`. Still fix the

@@ -4,6 +4,7 @@
 //! pipeline can be exercised by integration tests without starting the TUI.
 
 pub mod converter;
+pub mod export;
 pub mod rasterizer;
 pub mod ui;
 pub mod watcher;

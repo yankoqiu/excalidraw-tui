@@ -2,10 +2,10 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Live, zero-disk Excalidraw preview in your terminal. Point `exv` at an
-`.excalidraw` file, put the terminal pane next to your AI coding agent, and watch
-the diagram update as the agent writes. Pan, zoom, and inspect without leaving
-the terminal.
+Preview and convert Excalidraw diagrams from the terminal. Point `exv` at an
+`.excalidraw` file to pan, zoom, and inspect it, or export SVG/PNG without
+leaving the shell. Add `--watch` to refresh the terminal preview as an AI coding
+agent writes.
 
 ```text
 demo.excalidraw | 120% | 10 elements | kitty | Ready | hjkl pan  +/- zoom  0 reset  q quit
@@ -13,14 +13,15 @@ demo.excalidraw | 120% | 10 elements | kitty | Ready | hjkl pan  +/- zoom  0 res
 
 ## Why
 
-- **Zero disk temp files.** The SVG travels from the JavaScript renderer to Rust
-  over a pipe; pixels go straight to the terminal. `exv` never writes `.svg`,
-  `.png`, or cache files.
+- **No temporary files.** The SVG travels from the JavaScript renderer to Rust
+  over a pipe; pixels go straight to the terminal. Only the output file you
+  explicitly request with `--format` is written; there are no cache files.
 - **Resident renderer.** One Node/Bun process loads the Excalidraw renderer once
   and converts documents over newline-delimited JSON-RPC, so reloads are fast.
 - **Atomic-save aware.** Editors and agents often write a temp file and rename
-  it. `exv` watches the parent directory, debounces 300 ms, validates JSON, and
-  keeps the last good frame while a write is incomplete.
+  it. With `--watch`, `exv` watches the parent directory, debounces 300 ms,
+  validates JSON, and keeps the last good frame or export while a write is
+  incomplete.
 - **Chinese/CJK ready.** The renderer rewrites font stacks and the rasterizer
   uses system font fallback, so Chinese labels stay readable instead of tofu.
 - **No stray processes.** The worker is killed and reaped on every exit path,
@@ -50,14 +51,15 @@ Use `--protocol` if auto-detection guesses wrong.
 Run once without installing globally:
 
 ```sh
-npx --yes excalidraw-tui@latest diagram.excalidraw
+npx --yes excalidraw-tui@latest --watch diagram.excalidraw
+npx --yes excalidraw-tui@latest diagram.excalidraw --format png
 ```
 
 Or install the `exv` command globally:
 
 ```sh
 npm install -g excalidraw-tui
-exv diagram.excalidraw
+exv --watch diagram.excalidraw
 ```
 
 The npm package selects a prebuilt binary for your platform through optional
@@ -75,8 +77,8 @@ the platform binary and `exv` will explain how to reinstall.
 Updating:
 
 ```sh
-npx --yes excalidraw-tui@latest diagram.excalidraw  # always fetch the latest release
-npm update -g excalidraw-tui                        # update a global install
+npx --yes excalidraw-tui@latest --watch diagram.excalidraw  # always fetch the latest release
+npm update -g excalidraw-tui                                # update a global install
 ```
 
 If no prebuilt binary exists for your OS or architecture, build from source or
@@ -134,21 +136,34 @@ exv [OPTIONS] <FILE>
 ```
 
 ```sh
-exv diagram.excalidraw
-exv --theme dark --protocol kitty architecture.excalidraw
-exv --no-watch diagram.excalidraw
-npx --yes excalidraw-tui@latest --theme dark diagram.excalidraw
+exv diagram.excalidraw                              # static terminal preview
+exv --watch diagram.excalidraw                      # live terminal preview
+exv --theme dark --protocol kitty --watch architecture.excalidraw
+
+exv diagram.excalidraw --format svg                 # -> diagram.svg
+exv diagram.excalidraw --format png --scale 2       # -> diagram.png at 2x
+exv diagram.excalidraw -o architecture.png          # format inferred from .png
+exv diagram.excalidraw --format svg -o -            # SVG on stdout
 ```
 
 | Flag | Description |
 | --- | --- |
-| `--theme <light\|dark>` | Render on a light or dark canvas (default `light`) |
-| `--no-watch` | Load once; requires the file to exist and contain valid JSON |
-| `--protocol <auto\|kitty\|sixel\|halfblocks>` | Force a graphics protocol |
+| `-w`, `--watch` | Keep the terminal preview open and refresh it on changes |
+| `-f`, `--format <svg\|png>` | Convert instead of opening the terminal preview |
+| `-o`, `--output <PATH>` | Export path; defaults to `<input>.svg` / `<input>.png`; `-` means stdout |
+| `--scale <FACTOR>` | PNG resolution multiplier (default `1`, PNG only) |
+| `--theme <light\|dark>` | Canvas theme for preview and PNG (default `light`) |
+| `--protocol <auto\|kitty\|sixel\|halfblocks>` | Force a graphics protocol (preview only) |
 
-In watch mode the file may not exist yet: the parent directory must exist, and
-the viewer shows `waiting for <name>` until the first valid save. `exv` must be
-launched from an interactive terminal (stdin and stdout must be a TTY).
+Exports always run once and exit. `--watch` applies to the terminal preview
+only. In preview watch mode the source may not exist yet: the parent directory
+must exist, and `exv` waits until the first valid save. Atomic rename saves are
+detected. Preview mode requires stdin and stdout to be a TTY; export mode works
+in scripts and CI.
+
+SVG export writes the renderer's vector output unchanged. PNG export rasterizes
+the complete diagram at its intrinsic size times `--scale`, applies `--theme`,
+and enforces the same 40-million-pixel memory cap as the preview.
 
 ### Keys
 
@@ -165,7 +180,7 @@ protocol, load/sync state, and the key legend.
 
 ## Live preview workflow
 
-1. Start `exv diagram.excalidraw` in a terminal pane next to your agent.
+1. Start `exv --watch diagram.excalidraw` in a terminal pane next to your agent.
 2. Ask the agent to create or update the file.
 3. The watcher notices the atomic save, validates the JSON, and replaces the
    frame. Partial JSON shows `Syncing...` and keeps the previous image.
@@ -211,7 +226,7 @@ your Herdr config if you use it often.
 
 ```text
  .excalidraw file
-      │  parent-dir watch, 300 ms debounce, JSON validity gate
+      │  optional parent-dir watch, 300 ms debounce, JSON validity gate
       ▼
  Rust TUI (ratatui + crossterm)
       │  {"id":N,"json":"..."} over stdin
@@ -227,9 +242,10 @@ your Herdr config if you use it often.
 
 | Path | Role |
 | --- | --- |
-| `src/main.rs` | CLI, terminal session RAII, protocol picker, signal flags |
+| `src/main.rs` | CLI, preview/export modes, terminal session RAII, signal flags |
 | `src/converter.rs` | Worker spawn/handshake/timeouts; `Drop` kills and waits |
-| `src/rasterizer.rs` | SVG parse once, viewport rendering, light/dark themes |
+| `src/export.rs` | One-shot SVG and PNG export pipeline |
+| `src/rasterizer.rs` | SVG parse once, viewport/full-image rendering, light/dark themes |
 | `src/ui.rs` | App state, keys, status bar, image sync |
 | `src/watcher.rs` | Debounced parent-directory watch with filename filter |
 | `renderer/worker.mjs` | jsdom environment, element normalization, `exportScene` |
@@ -238,13 +254,15 @@ your Herdr config if you use it often.
 | `tests/` | Chinese full pipeline, worker error recovery, atomic rename |
 
 The renderer is bundled with esbuild into one file before publishing, so users
-do not download `@excalidraw/utils`, jsdom, or their dependency tree. Only the
-visible viewport is rasterized, and the SVG is parsed once per file change, so
-zooming and panning do not invoke the JavaScript worker again.
+do not download `@excalidraw/utils`, jsdom, or their dependency tree. Preview
+mode rasterizes only the visible viewport, and the SVG is parsed once per file
+change, so zooming and panning do not invoke the JavaScript worker again.
+Export mode rasterizes the complete diagram once per save.
 
 ### Zero-disk and process-lifecycle guarantees
 
-- No temporary SVG/PNG/cache files: SVG text and pixels stay in memory.
+- No temporary SVG/PNG/cache files: SVG text and pixels stay in memory. An
+  explicit `--format svg|png` export writes only the requested output path.
 - One generation counter discards stale conversion results after rapid saves.
 - `Converter::drop` closes stdin, kills the child, and waits for it. Unix
   builds also convert `SIGHUP`/`SIGINT`/`SIGQUIT`/`SIGTERM` into an orderly quit.
@@ -258,15 +276,16 @@ npm ci --prefix renderer
 npm run bundle --prefix renderer
 npm run smoke --prefix renderer
 node --test tests/npm-cli.test.mjs
-cargo test --locked                  # unit + watcher + full pipeline
+cargo test --locked                  # unit + watcher + pipeline + CLI export
 cargo clippy --locked --all-targets -- -D warnings
 cargo fmt --check
 ```
 
-The pipeline test needs Node or Bun plus `renderer/node_modules`; otherwise it
-skips with a message. It converts the Chinese sample at
-`tests/data/sample.excalidraw`, checks the per-request error path, verifies the
-worker survives a malformed document, and rasterizes the SVG in memory.
+The pipeline and CLI export tests need Node or Bun plus `renderer/node_modules`;
+otherwise they skip with a message. They convert the Chinese sample at
+`tests/data/sample.excalidraw`, verify SVG and PNG output, check the per-request
+error path, confirm the worker survives a malformed document, and rasterize the
+SVG in memory.
 
 `Cargo.lock` intentionally pins `notify-types` to `2.2.0`: version `2.3.x`
 requires Rust 1.91. Build with `--locked`, or use a newer toolchain if you
@@ -291,13 +310,15 @@ Tarballs land in `dist/npm/tarballs/`; the script validates their contents with
 | `Node.js >=22.22.2 is required` | Upgrade Node; the renderer depends on a modern jsdom |
 | Platform package is missing | Reinstall without `--omit=optional`; check `npm config get omit`, then run `npm install -g excalidraw-tui@latest` |
 | `unsupported platform ...` | Use a supported platform, build from source, or point `EXV_BIN` at a custom binary |
-| `must run in an interactive terminal` | Run `exv` directly in a terminal; stdin and stdout cannot be piped |
-| `waiting for ...` forever | The parent directory must exist; save valid JSON to the exact path |
+| `must run in an interactive terminal` | Preview mode needs a TTY; use `--format svg\|png` to export from scripts or CI |
+| `waiting for ...` forever | `--watch` needs the parent directory to exist; save valid JSON to the exact path |
 | `Syncing...` stuck | The file currently has invalid/truncated JSON; run `jq . file.excalidraw` |
 | Renderer fails to start | Check `node --version`; for source builds run `npm ci --prefix renderer`; or set `EXV_RENDERER` |
 | `exv` not found with Herdr | Use a global npm install so the pane script can resolve `exv` from `PATH` |
 | Garbled or misplaced image | Try `--protocol halfblocks` first, then `sixel` / `kitty`; some terminals misreport font cell size |
-| Image does not update | Ensure you edit the same filename; the watcher filters by name and watches the directory |
+| Image does not update | Start the preview with `--watch`; the watcher filters by filename and watches the parent directory |
+| `--watch only applies to the terminal preview` | Export commands run once; remove `--watch` when using `--format` |
+| Export path is not written | The output directory must exist; `-o` cannot equal the input file; use `--format` when the extension is not `.svg`/`.png` |
 | Build fails on `notify-types` MSRV | Use the committed `Cargo.lock` with Rust 1.88+, or update Rust |
 
 ## Limitations

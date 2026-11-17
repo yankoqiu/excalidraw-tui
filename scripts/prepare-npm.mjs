@@ -158,7 +158,7 @@ function assembleMain({ version, repository, nodeRange }) {
     name: "excalidraw-tui",
     version,
     description:
-      "Zero-disk, live Excalidraw preview in the terminal with Kitty, Sixel, and half-block output",
+      "Preview and convert Excalidraw diagrams in the terminal with Kitty, Sixel, half-block output, and SVG/PNG export",
     bin: { exv: "cli.js" },
     files: [
       "cli.js",

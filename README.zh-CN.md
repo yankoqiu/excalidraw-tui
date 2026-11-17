@@ -2,9 +2,9 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-在终端里实时预览 Excalidraw，不落任何磁盘临时文件。把 `exv` 指向一个
-`.excalidraw` 文件，将终端窗格放在 AI 编程助手旁边，就能在智能体写入文件时
-同步看到图表更新。平移、缩放、检查图表，全程不离开终端。
+在终端里预览和转换 Excalidraw 图表。把 `exv` 指向一个 `.excalidraw` 文件即可
+平移、缩放、检查图表，也可以直接导出 SVG/PNG。加上 `--watch` 后，终端预览
+画面会在 AI 编程助手写入时自动更新。
 
 ```text
 demo.excalidraw | 120% | 10 elements | kitty | Ready | hjkl pan  +/- zoom  0 reset  q quit
@@ -12,12 +12,13 @@ demo.excalidraw | 120% | 10 elements | kitty | Ready | hjkl pan  +/- zoom  0 res
 
 ## 为什么选择 exv
 
-- **绝对零磁盘临时文件。** SVG 通过管道从 JavaScript 渲染器传到 Rust；像素直接
-  送往终端。`exv` 不会写入 `.svg`、`.png` 或任何缓存文件。
+- **不产生临时文件。** SVG 通过管道从 JavaScript 渲染器传到 Rust；像素直接
+  送往终端。只有你显式使用 `--format` 指定的输出文件会被写入，没有缓存文件。
 - **常驻渲染器。** 单个 Node/Bun 进程只加载一次 Excalidraw 渲染器，之后通过
   按行分隔的 JSON-RPC 转换文档，因此刷新很快。
-- **兼容原子保存。** 编辑器和智能体通常先写临时文件再重命名覆盖。`exv` 监听
-  父目录，做 300 毫秒防抖并校验 JSON；写入不完整时保留上一帧正常画面。
+- **兼容原子保存。** 编辑器和智能体通常先写临时文件再重命名覆盖。使用
+  `--watch` 时，`exv` 监听父目录，做 300 毫秒防抖并校验 JSON；写入不完整时
+  保留上一帧正常画面或导出结果。
 - **中文/CJK 友好。** 渲染器会重写字体栈，光栅化器使用系统字体回退，中文标签
   不会变成方框乱码。
 - **不残留子进程。** 无论正常退出、panic 展开，还是关闭终端窗格触发 `SIGHUP`，
@@ -47,14 +48,15 @@ Rust 工具链、C 编译器，也不需要安装渲染器依赖。
 无需全局安装，直接运行：
 
 ```sh
-npx --yes excalidraw-tui@latest diagram.excalidraw
+npx --yes excalidraw-tui@latest --watch diagram.excalidraw
+npx --yes excalidraw-tui@latest diagram.excalidraw --format png
 ```
 
 或者全局安装 `exv` 命令：
 
 ```sh
 npm install -g excalidraw-tui
-exv diagram.excalidraw
+exv --watch diagram.excalidraw
 ```
 
 npm 包通过 optional dependencies 为当前平台选择预编译二进制：
@@ -71,8 +73,8 @@ npm 包通过 optional dependencies 为当前平台选择预编译二进制：
 更新：
 
 ```sh
-npx --yes excalidraw-tui@latest diagram.excalidraw  # 每次获取最新版本
-npm update -g excalidraw-tui                        # 更新全局安装
+npx --yes excalidraw-tui@latest --watch diagram.excalidraw  # 每次获取最新版本
+npm update -g excalidraw-tui                                # 更新全局安装
 ```
 
 如果没有适用于你的系统或架构的预编译二进制，可以从源码构建，或用 `EXV_BIN`
@@ -129,21 +131,31 @@ exv [OPTIONS] <FILE>
 ```
 
 ```sh
-exv diagram.excalidraw
-exv --theme dark --protocol kitty architecture.excalidraw
-exv --no-watch diagram.excalidraw
-npx --yes excalidraw-tui@latest --theme dark diagram.excalidraw
+exv diagram.excalidraw                              # 一次性终端预览
+exv --watch diagram.excalidraw                      # 实时终端预览
+exv --theme dark --protocol kitty --watch architecture.excalidraw
+
+exv diagram.excalidraw --format svg                 # 生成 diagram.svg
+exv diagram.excalidraw --format png --scale 2       # 生成 2 倍分辨率 diagram.png
+exv diagram.excalidraw -o architecture.png          # 从 .png 后缀推断格式
+exv diagram.excalidraw --format svg -o -            # SVG 输出到 stdout
 ```
 
 | 参数 | 说明 |
 | --- | --- |
-| `--theme <light\|dark>` | 浅色或深色画布（默认 `light`） |
-| `--no-watch` | 只加载一次；要求文件已存在且 JSON 有效 |
-| `--protocol <auto\|kitty\|sixel\|halfblocks>` | 强制指定图形协议 |
+| `-w`, `--watch` | 保持终端预览打开，并在源文件变化时刷新 |
+| `-f`, `--format <svg\|png>` | 转换并退出，不打开终端预览 |
+| `-o`, `--output <PATH>` | 导出路径；默认 `<输入>.svg` / `<输入>.png`；`-` 表示 stdout |
+| `--scale <FACTOR>` | PNG 分辨率倍数（默认 `1`，仅 PNG） |
+| `--theme <light\|dark>` | 预览和 PNG 的画布主题（默认 `light`） |
+| `--protocol <auto\|kitty\|sixel\|halfblocks>` | 强制指定图形协议（仅预览） |
 
-监听模式下文件可以尚不存在：父目录必须存在，看到第一次有效保存前状态栏显示
-`waiting for <name>`。`exv` 必须在交互式终端中启动（stdin 和 stdout 都必须是
-TTY）。
+导出始终只执行一次并退出，`--watch` 仅适用于终端预览。预览监听时源文件可以
+尚不存在：父目录必须存在，`exv` 会等待第一次有效保存，并识别原子重命名。
+终端预览要求 stdin 和 stdout 都是 TTY；导出模式可以在脚本和 CI 中使用。
+
+SVG 导出直接写入渲染器生成的矢量内容。PNG 导出按“原始尺寸 × `--scale`”
+光栅化完整图表，应用 `--theme`，并沿用预览相同的 4000 万像素内存上限。
 
 ### 按键
 
@@ -159,7 +171,7 @@ TTY）。
 
 ## 实时预览工作流
 
-1. 在 AI 编程助手旁边的终端窗格中执行 `exv diagram.excalidraw`。
+1. 在 AI 编程助手旁边的终端窗格中执行 `exv --watch diagram.excalidraw`。
 2. 让智能体创建或更新该文件。
 3. 监听器发现原子保存、校验 JSON，然后替换画面。写入不完整时显示
    `Syncing...`，并保留上一张正常图像。
@@ -203,7 +215,7 @@ herdr plugin action invoke excalidraw-tui.preview
 
 ```text
  .excalidraw 文件
-      │  监听父目录、300 ms 防抖、JSON 有效性检查
+      │  可选父目录监听、300 ms 防抖、JSON 有效性检查
       ▼
  Rust TUI（ratatui + crossterm）
       │  通过 stdin 发送 {"id":N,"json":"..."}
@@ -219,9 +231,10 @@ herdr plugin action invoke excalidraw-tui.preview
 
 | 路径 | 职责 |
 | --- | --- |
-| `src/main.rs` | CLI、终端会话 RAII、协议选择、信号处理 |
+| `src/main.rs` | CLI、预览/导出模式、终端会话 RAII、信号处理 |
 | `src/converter.rs` | Worker 启动/握手/超时；`Drop` 中 kill 并 wait |
-| `src/rasterizer.rs` | SVG 解析一次、视口渲染、明暗主题 |
+| `src/export.rs` | 一次性 SVG 与 PNG 导出流程 |
+| `src/rasterizer.rs` | SVG 解析一次、视口/完整图像渲染、明暗主题 |
 | `src/ui.rs` | 应用状态、按键、状态栏、图像同步 |
 | `src/watcher.rs` | 带防抖的父目录监听与文件名过滤 |
 | `renderer/worker.mjs` | jsdom 环境、元素归一化、`exportScene` |
@@ -230,12 +243,14 @@ herdr plugin action invoke excalidraw-tui.preview
 | `tests/` | 中文全链路、Worker 错误恢复、原子重命名 |
 
 发布前会用 esbuild 把渲染器打包成单个文件，用户无需下载 `@excalidraw/utils`、
-jsdom 及其依赖树。只光栅化当前可见视口，且每次文件变化只解析一次 SVG，因此
-缩放和平移不会再次调用 JavaScript Worker。
+jsdom 及其依赖树。预览模式只光栅化当前可见视口，且每次文件变化只解析一次
+SVG，因此缩放和平移不会再次调用 JavaScript Worker。导出模式每次保存完整
+光栅化一次图表。
 
-### 零磁盘与进程生命周期保证
+### 零临时文件与进程生命周期保证
 
-- 不写任何临时 SVG/PNG/缓存文件：SVG 文本和像素都留在内存中。
+- 不写任何临时 SVG/PNG/缓存文件：SVG 文本和像素都留在内存中。只有显式
+  `--format svg|png` 指定的输出路径会被写入。
 - 用世代计数器丢弃快速连续保存产生的过期转换结果。
 - `Converter::drop` 会关闭 stdin、终止子进程并等待回收。Unix 构建还会把
   `SIGHUP`/`SIGINT`/`SIGQUIT`/`SIGTERM` 转换为有序退出。
@@ -248,14 +263,15 @@ npm ci --prefix renderer
 npm run bundle --prefix renderer
 npm run smoke --prefix renderer
 node --test tests/npm-cli.test.mjs
-cargo test --locked                  # 单元测试 + watcher + 全链路测试
+cargo test --locked                  # 单元测试 + watcher + 全链路 + CLI 导出
 cargo clippy --locked --all-targets -- -D warnings
 cargo fmt --check
 ```
 
-全链路测试需要 Node 或 Bun，以及 `renderer/node_modules`；否则会打印原因并
-跳过。测试会转换 `tests/data/sample.excalidraw` 中的中文样例，检查单次请求错误
-路径，验证 Worker 在收到畸形文档后仍能继续工作，并在内存中完成 SVG 光栅化。
+全链路和 CLI 导出测试需要 Node 或 Bun，以及 `renderer/node_modules`；否则会
+打印原因并跳过。测试会转换 `tests/data/sample.excalidraw` 中的中文样例，验证
+SVG 和 PNG 输出，检查单次请求错误路径，确认 Worker 在收到畸形文档后仍能继续
+工作，并在内存中完成 SVG 光栅化。
 
 `Cargo.lock` 有意将 `notify-types` 固定在 `2.2.0`：`2.3.x` 要求 Rust 1.91。
 请使用 `--locked` 构建；如需升级，请换用更新的工具链。
@@ -278,13 +294,15 @@ tarball 位于 `dist/npm/tarballs/`；脚本会用 `npm pack --dry-run` 校验�
 | 提示 `Node.js >=22.22.2 is required` | 升级 Node；渲染器依赖较新的 jsdom |
 | 平台包缺失 | 不要使用 `--omit=optional` 重新安装；检查 `npm config get omit`，然后运行 `npm install -g excalidraw-tui@latest` |
 | `unsupported platform ...` | 使用受支持的平台、从源码构建，或用 `EXV_BIN` 指向自定义二进制 |
-| 提示 `must run in an interactive terminal` | 直接在终端中运行 `exv`；stdin 和 stdout 不能重定向到管道 |
-| 一直显示 `waiting for ...` | 父目录必须存在；并把有效 JSON 保存到确切路径 |
+| 提示 `must run in an interactive terminal` | 预览模式需要 TTY；在脚本或 CI 中请用 `--format svg\|png` 导出 |
+| 一直显示 `waiting for ...` | `--watch` 要求父目录存在；并把有效 JSON 保存到确切路径 |
 | 一直停在 `Syncing...` | 当前文件 JSON 无效或被截断；运行 `jq . file.excalidraw` 检查 |
 | 渲染器无法启动 | 检查 `node --version`；源码构建请运行 `npm ci --prefix renderer`；或设置 `EXV_RENDERER` |
 | Herdr 中找不到 `exv` | 使用全局 npm 安装，让窗格脚本能从 `PATH` 找到 `exv` |
 | 图像错位或乱码 | 先试 `--protocol halfblocks`，再试 `sixel` / `kitty`；部分终端会错误报告字符单元格尺寸 |
-| 图像不刷新 | 确认编辑的是同一文件名；监听器按文件名过滤并监听目录 |
+| 图像不刷新 | 启动预览时加上 `--watch`；监听器按文件名过滤并监听父目录 |
+| 提示 `--watch only applies to the terminal preview` | 导出只执行一次；使用 `--format` 时去掉 `--watch` |
+| 导出文件没有生成 | 输出目录必须存在；`-o` 不能与输入文件相同；后缀不是 `.svg`/`.png` 时需加 `--format` |
 | 构建因 `notify-types` 的 MSRV 失败 | 使用仓库中的 `Cargo.lock` 配合 Rust 1.88+，或升级 Rust |
 
 ## 限制

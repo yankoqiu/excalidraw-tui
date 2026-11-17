@@ -80,4 +80,4 @@ case ":$PATH:" in
     ;;
 esac
 
-say "Try it: exv $ROOT/examples/demo.excalidraw"
+say "Try it: exv --watch $ROOT/examples/demo.excalidraw"

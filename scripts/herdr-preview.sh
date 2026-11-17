@@ -77,4 +77,4 @@ if [ -z "$file" ]; then
 fi
 
 printf 'exv: previewing %s\n' "$file" >&2
-exec "$exv_bin" "$file"
+exec "$exv_bin" --watch "$file"

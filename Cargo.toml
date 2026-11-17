@@ -3,7 +3,7 @@ name = "excalidraw-tui"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.88"
-description = "Zero-disk, live Excalidraw preview in the terminal"
+description = "Preview and convert Excalidraw diagrams in the terminal"
 license = "MIT"
 repository = "https://github.com/iam-yanko/excalidraw-tui"
 readme = "README.md"
@@ -19,7 +19,7 @@ anyhow = "1"
 clap = { version = "4.6", features = ["derive"] }
 crossterm = "0.29"
 fontdb = "0.24"
-image = { version = "0.25", default-features = false }
+image = { version = "0.25", default-features = false, features = ["png"] }
 notify = "8.2"
 notify-debouncer-mini = "0.7"
 ratatui = "0.30"

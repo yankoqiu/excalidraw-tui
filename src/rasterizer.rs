@@ -128,7 +128,44 @@ impl Rasterizer {
         let transform = Transform::from_row(scale, 0.0, 0.0, scale, dx, dy);
         resvg::render(tree, transform, &mut pixmap.as_mut());
 
-        let mut pixels = pixmap.take();
+        self.finish_image(aw, ah, pixmap.take())
+    }
+
+    /// Renders the complete diagram at `scale` pixels per SVG unit.
+    pub fn render_full(&self, tree: &Tree, scale: f32) -> Result<DynamicImage> {
+        let (svg_w, svg_h) = Self::tree_size(tree);
+        if !(svg_w.is_finite() && svg_h.is_finite()) || svg_w <= 0.0 || svg_h <= 0.0 {
+            bail!("diagram has an empty or invalid size ({svg_w}x{svg_h})");
+        }
+        if !scale.is_finite() || scale <= 0.0 {
+            bail!("invalid export scale");
+        }
+
+        let width = (f64::from(svg_w) * f64::from(scale)).ceil();
+        let height = (f64::from(svg_h) * f64::from(scale)).ceil();
+        if width < 1.0
+            || height < 1.0
+            || width > f64::from(u32::MAX)
+            || height > f64::from(u32::MAX)
+        {
+            bail!("exported image has an invalid size ({width}x{height})");
+        }
+        if width * height > MAX_PIXELS as f64 {
+            bail!("exported image is too large ({width}x{height})");
+        }
+
+        let (width, height) = (width as u32, height as u32);
+        let mut pixmap =
+            Pixmap::new(width, height).context("failed to allocate in-memory image buffer")?;
+        pixmap.fill(Color::WHITE);
+
+        let transform = Transform::from_row(scale, 0.0, 0.0, scale, 0.0, 0.0);
+        resvg::render(tree, transform, &mut pixmap.as_mut());
+
+        self.finish_image(width, height, pixmap.take())
+    }
+
+    fn finish_image(&self, width: u32, height: u32, mut pixels: Vec<u8>) -> Result<DynamicImage> {
         if self.theme == Theme::Dark {
             // The SVG is exported with an opaque white background and dark ink;
             // inverting RGB yields a dark canvas with light ink while keeping
@@ -141,7 +178,8 @@ impl Rasterizer {
             }
         }
 
-        let image = RgbaImage::from_raw(aw, ah, pixels).context("invalid RGBA pixel buffer")?;
+        let image =
+            RgbaImage::from_raw(width, height, pixels).context("invalid RGBA pixel buffer")?;
         Ok(DynamicImage::ImageRgba8(image))
     }
 }
@@ -241,5 +279,20 @@ mod tests {
             .render_view(&tree, (400, 200), 3.0, (120, -40))
             .expect("render");
         assert_eq!((image.width(), image.height()), (400, 200));
+    }
+
+    #[test]
+    fn renders_full_diagram_at_export_scale() {
+        let rasterizer = Rasterizer::new(Theme::Light);
+        let tree = rasterizer.parse_svg(sample_svg()).expect("parse svg");
+        let image = rasterizer.render_full(&tree, 2.0).expect("render");
+
+        assert_eq!((image.width(), image.height()), (840, 320));
+        let rgba = image.to_rgba8();
+        let ink = rgba
+            .pixels()
+            .filter(|pixel| pixel.0[0] < 240 || pixel.0[1] < 240 || pixel.0[2] < 240)
+            .count();
+        assert!(ink > 1000, "expected visible diagram content, got {ink}");
     }
 }

@@ -57,12 +57,13 @@ preview with `exv`.
 
 ```sh
 jq . diagram.excalidraw > /dev/null
-exv diagram.excalidraw
+exv --watch diagram.excalidraw
 ```
 
 Do not block an agent turn on `exv`; it is an interactive TUI. Tell the user to
-run it in a terminal pane. It live-reloads on save, tolerates partial JSON by
-keeping the last good frame, and reacts to temp-file-plus-rename saves.
+run it in a terminal pane. With `--watch`, it live-reloads on save, tolerates
+partial JSON by keeping the last good frame, and reacts to temp-file-plus-rename
+saves.
 
 For edits: read the file first, preserve unrelated content and ids, update only
 changed elements, and mark removals with `isDeleted: true`. Prefer atomic saves.

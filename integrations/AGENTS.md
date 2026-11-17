@@ -104,14 +104,14 @@ Binding checklist:
 
 ```sh
 jq . diagram.excalidraw > /dev/null
-exv diagram.excalidraw
+exv --watch diagram.excalidraw
 ```
 
 `exv` is interactive, so the human runs it in a terminal pane, not inside a
-blocking tool call. It watches the file and refreshes as you save. Invalid or
-partial JSON keeps the last good frame and shows `Syncing...` in the status bar.
+blocking tool call. With `--watch`, it refreshes as you save. Invalid or partial
+JSON keeps the last good frame and shows `Syncing...` in the status bar.
 
 When editing an existing file, preserve unrelated elements and styles, update
 only changed elements, and set `isDeleted: true` for removals instead of
-dropping referenced ids. Use temp-file-plus-rename saves when practical; `exv`
-watches the parent directory and handles atomic renames.
+dropping referenced ids. Use temp-file-plus-rename saves when practical;
+`--watch` monitors the parent directory and handles atomic renames.
