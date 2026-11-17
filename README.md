@@ -48,9 +48,9 @@ published packages: they contain a prebuilt `exv` binary and a bundled renderer.
 
 | Terminal | Typical path |
 | --- | --- |
-| Kitty, Ghostty, WezTerm | Kitty graphics protocol |
-| iTerm2, foot, mlterm, WezTerm | Sixel |
-| Zed panes | host-terminal protocol if passed through |
+| Kitty, Ghostty | Kitty graphics protocol |
+| iTerm2, WezTerm, Rio | iTerm2 inline images |
+| foot, mlterm, Sixel-enabled xterm | Sixel |
 | Anything else | Unicode half-blocks fallback |
 
 Use `--protocol` if auto-detection guesses wrong.
@@ -284,6 +284,7 @@ Tarballs land in `dist/npm/tarballs/`; the script validates their contents with
 | `Syncing...` stuck | The file currently has invalid/truncated JSON; run `jq . file.excalidraw` |
 | Renderer fails to start | Check `node --version`; reinstall `excalidraw-tui`; or set `EXV_RENDERER` |
 | Garbled or misplaced image | Try `--protocol halfblocks` first, then `sixel` / `kitty`; some terminals misreport font cell size |
+| Blurry image in Zed | Zed's built-in terminal has no inline image protocol, so exv falls back to Unicode half-blocks; run exv in a Kitty/Sixel-capable terminal |
 | Image does not update | Start the preview with `--watch`; the watcher filters by filename and watches the parent directory |
 | `--watch only applies to the terminal preview` | Export commands run once; remove `--watch` when using `--format` |
 | Export path is not written | The output directory must exist; `-o` cannot equal the input file; use `--format` when the extension is not `.svg`/`.png` |

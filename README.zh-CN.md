@@ -44,9 +44,9 @@ Rust 工具链、C 编译器，也不需要安装渲染器依赖。
 
 | 终端 | 常用路径 |
 | --- | --- |
-| Kitty、Ghostty、WezTerm | Kitty 图形协议 |
-| iTerm2、foot、mlterm、WezTerm | Sixel |
-| Zed 窗格 | 宿主终端协议透传（若支持） |
+| Kitty、Ghostty | Kitty 图形协议 |
+| iTerm2、WezTerm、Rio | iTerm2 内联图像协议 |
+| foot、mlterm、启用 Sixel 的 xterm | Sixel |
 | 其他终端 | Unicode 半块降级 |
 
 自动探测不准确时，使用 `--protocol` 指定协议。
@@ -265,6 +265,7 @@ tarball 位于 `dist/npm/tarballs/`；脚本会用 `npm pack --dry-run` 校验�
 | 一直停在 `Syncing...` | 当前文件 JSON 无效或被截断；运行 `jq . file.excalidraw` 检查 |
 | 渲染器无法启动 | 检查 `node --version`；重新安装 `excalidraw-tui`；或设置 `EXV_RENDERER` |
 | 图像错位或乱码 | 先试 `--protocol halfblocks`，再试 `sixel` / `kitty`；部分终端会错误报告字符单元格尺寸 |
+| Zed 中画面模糊 | Zed 内置终端没有内联图像协议，exv 只能降级到 Unicode 半块；请在支持 Kitty/Sixel 的终端中运行 |
 | 图像不刷新 | 启动预览时加上 `--watch`；监听器按文件名过滤并监听父目录 |
 | 提示 `--watch only applies to the terminal preview` | 导出只执行一次；使用 `--format` 时去掉 `--watch` |
 | 导出文件没有生成 | 输出目录必须存在；`-o` 不能与输入文件相同；后缀不是 `.svg`/`.png` 时需加 `--format` |
