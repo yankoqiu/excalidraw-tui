@@ -453,7 +453,7 @@ pub fn find_worker_script() -> Result<PathBuf> {
     }
 
     bail!(
-        "could not locate renderer/worker.mjs (looked in: {}). Reinstall with install.sh or set EXV_RENDERER.",
+        "could not locate renderer/worker.mjs (looked in: {}). Reinstall excalidraw-tui or set EXV_RENDERER.",
         candidates
             .iter()
             .map(|path| path.display().to_string())
