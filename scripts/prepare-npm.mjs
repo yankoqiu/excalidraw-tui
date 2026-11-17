@@ -57,7 +57,7 @@ function parseCargoPackage() {
 }
 
 function repositoryFields(repository) {
-  const base = (repository || "https://github.com/iam-yanko/excalidraw-tui").replace(
+  const base = (repository || "https://github.com/yankoqiu/excalidraw-tui").replace(
     /\.git$/,
     "",
   );

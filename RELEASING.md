@@ -81,7 +81,7 @@ After the first release, configure OIDC publishing for each of the six packages:
 1. Open the package settings on npmjs.com.
 2. Add a Trusted Publisher:
    - Provider: GitHub Actions
-   - Organization or user: `iam-yanko`
+   - Organization or user: `yankoqiu`
    - Repository: `excalidraw-tui`
    - Workflow filename: `release.yml`
    - Environment: `npm`
