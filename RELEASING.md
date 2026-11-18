@@ -22,6 +22,12 @@ packages must use that exact version.
   Environments**. The publish job targets this environment, and trusted
   publishing is configured with the same environment name. Add approvals or
   environment-scoped secrets as needed.
+- Trusted publishing configured on npmjs.com for all six packages: provider
+  GitHub Actions, workflow filename `release.yml`, environment `npm`, and
+  **Allow npm publish** checked (configurations created after Sep 3, 2026 only
+  allow `npm stage publish` by default). The publish job intentionally does not
+  accept an `NPM_TOKEN` secret; it fails fast if the OIDC token endpoint is
+  unavailable so misconfiguration is not masked by a fallback token.
 - Node.js 22.22.2+ locally for packaging. CI uses Node 24.
 
 The build matrix is:
@@ -36,10 +42,11 @@ The build matrix is:
 
 Linux binaries are checked for dynamic dependencies before packaging.
 
-## First release (bootstrap token)
+## First publication of a brand-new package
 
-Trusted publishing can only be configured after a package exists, so the first
-publication needs an npm token.
+Trusted publishing can only be configured after a package exists on npmjs.com,
+and the release workflow publishes exclusively through OIDC. A brand-new package
+name therefore needs one manual publish first:
 
 1. Confirm the six names are still available:
 
@@ -50,33 +57,29 @@ publication needs an npm token.
 
    A 404 means the name is available.
 
-2. Set the release version in `Cargo.toml`, commit, and push `main`.
-3. Create an npm granular access token with read/write access to the packages
-   (or choose all packages) and publish permission.
-4. Add the token as the repository secret `NPM_TOKEN`.
-5. Create and push the matching tag:
-
-   ```sh
-   git tag v0.1.0
-   git push origin v0.1.0
-   ```
-
-The release workflow validates the tag, builds every target, assembles npm
-tarballs, uploads them as the `npm-tarballs` artifact, publishes the five
-platform packages first, and publishes `excalidraw-tui` last. The publish step
-skips package versions that already exist, so a failed release can be retried
-after the underlying problem is fixed.
-
-6. Verify the result:
+2. Build the artifacts (see [Dry run](#dry-run)) and publish from a workstation
+   with an npm token that has publish permission, in the order listed under
+   [Manual publishing](#manual-publishing).
+3. Configure trusted publishing for all six packages (see
+   [Trusted publishing](#trusted-publishing)), then use tag releases for every
+   subsequent version.
+4. Verify the result:
 
    ```sh
    npm view excalidraw-tui@0.1.0 version
    npx --yes excalidraw-tui@0.1.0 --help
    ```
 
-## Migrate to trusted publishing
+For tag releases, the workflow validates the tag, builds every target, assembles
+npm tarballs, uploads them as the `npm-tarballs` artifact, publishes the five
+platform packages first, and publishes `excalidraw-tui` last. The publish step
+skips package versions that already exist, so a failed release can be retried
+after the underlying problem is fixed.
 
-After the first release, configure OIDC publishing for each of the six packages:
+## Trusted publishing
+
+Publishing runs through GitHub OIDC; no npm token secret is used. Configure this
+for each of the six packages after the first manual publish:
 
 1. Open the package settings on npmjs.com.
 2. Add a Trusted Publisher:
@@ -85,13 +88,33 @@ After the first release, configure OIDC publishing for each of the six packages:
    - Repository: `excalidraw-tui`
    - Workflow filename: `release.yml`
    - Environment: `npm`
+   - Allowed actions: check **Allow npm publish**
 3. Repeat for every platform package and the main package.
-4. Delete the `NPM_TOKEN` repository secret. With no token present, the workflow
-   relies on GitHub OIDC; `id-token: write` is already set on the publish job.
+4. Delete any leftover `NPM_TOKEN` repository secret; it is ignored by the
+   workflow.
 5. The workflow installs npm `^11.5.1`, which is required for trusted
    publishing.
 
-If `NPM_TOKEN` is present, the workflow uses it and prints a message saying so.
+### Diagnosing publish failures
+
+Trusted publishing failures surface as generic errors, often `ENEEDAUTH`, even
+when the real cause is a field mismatch. When a publish fails:
+
+- Check the failing run's log for the step output
+  `Publishing with npm trusted publishing (OIDC)`. If it is missing, the OIDC
+  endpoint guard failed or npm is not running with trusted publishing support.
+- Re-check on npmjs.com for every package: workflow filename must be exactly
+  `release.yml` (case-sensitive, with extension), environment must be `npm`,
+  and **Allow npm publish** must be checked. npm does not validate these when
+  the configuration is saved.
+- The `repository.url` in each generated `package.json` must resolve to
+  `github.com/yankoqiu/excalidraw-tui`.
+- Use GitHub-hosted runners only; self-hosted runners are not supported.
+- Verify the npm CLI is `>= 11.5.1`; the workflow installs the latest 11.x.
+
+After fixing configuration, re-run the failed publish job or start the workflow
+manually with `publish` enabled. No new tag is needed while versions remain
+unpublished; the publish helper skips any package version that already exists.
 
 ## Dry run
 

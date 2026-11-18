@@ -162,18 +162,16 @@ jobs:
           name: npm-tarballs
           path: dist/npm/tarballs
 
-      - name: Configure npm authentication
+      - name: Verify trusted publishing
         shell: bash
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
-          if [[ -n "${NPM_TOKEN:-}" ]]; then
-            printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > "$HOME/.npmrc"
-            echo "Publishing with NPM_TOKEN"
-          else
-            echo "Publishing with npm trusted publishing (OIDC)"
+          if [[ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" || -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]]; then
+            echo "OIDC token endpoint is unavailable. Check that the publish job has" >&2
+            echo "id-token: write and that the npm environment exists." >&2
+            exit 1
           fi
+          echo "Publishing with npm trusted publishing (OIDC)"
 
       - name: Publish platform packages, then main package
         shell: bash
