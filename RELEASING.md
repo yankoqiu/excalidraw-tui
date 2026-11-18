@@ -100,6 +100,13 @@ configuration must use the environment name `npm` exactly; a blank or different
 environment fails the OIDC check. npm stores only one trusted publisher per
 package, so correcting a field means revoking and recreating the configuration.
 
+Renaming the GitHub user, organization, or repository changes the `repository`
+claim in the OIDC token. Every trusted publisher created with the old name stops
+matching, and the token exchange fails with
+`OIDC token exchange error - package not found` (HTTP 404) even though the
+package exists. After any GitHub rename, revoke and recreate the configuration
+for all six packages using the new names.
+
 With npm 11.15+ you can inspect and recreate configurations from a local
 terminal (requires `npm login` with 2FA):
 
