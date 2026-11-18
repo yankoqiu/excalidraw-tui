@@ -95,6 +95,25 @@ for each of the six packages after the first manual publish:
 5. The workflow installs npm `^11.5.1`, which is required for trusted
    publishing.
 
+The publish job declares `environment: npm`, so every trusted publisher
+configuration must use the environment name `npm` exactly; a blank or different
+environment fails the OIDC check. npm stores only one trusted publisher per
+package, so correcting a field means revoking and recreating the configuration.
+
+With npm 11.15+ you can inspect and recreate configurations from a local
+terminal (requires `npm login` with 2FA):
+
+```sh
+npm trust list excalidraw-tui --json
+npm trust revoke excalidraw-tui --id <id>
+npm trust github excalidraw-tui \
+  --repo yankoqiu/excalidraw-tui --file release.yml --env npm \
+  --allow-publish --yes
+```
+
+Repeat for all six packages; npm offers a 5-minute 2FA skip window for bulk
+commands, and a 2-second sleep between calls avoids rate limiting.
+
 ### Diagnosing publish failures
 
 Trusted publishing failures surface as generic errors, often `ENEEDAUTH`, even

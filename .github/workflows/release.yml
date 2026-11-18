@@ -171,6 +171,8 @@ jobs:
             echo "id-token: write and that the npm environment exists." >&2
             exit 1
           fi
+          echo "npm $(npm --version), registry $(npm config get registry)"
+          npm config list
           echo "Publishing with npm trusted publishing (OIDC)"
 
       - name: Publish platform packages, then main package
