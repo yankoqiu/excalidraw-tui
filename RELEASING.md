@@ -117,11 +117,18 @@ commands, and a 2-second sleep between calls avoids rate limiting.
 ### Diagnosing publish failures
 
 Trusted publishing failures surface as generic errors, often `ENEEDAUTH`, even
-when the real cause is a field mismatch. When a publish fails:
+when the real cause is a field mismatch. npm only logs the OIDC exchange error
+at verbose level, so the publish job runs a preflight in **Verify trusted
+publishing**: it fetches the GitHub OIDC token, prints its claims (repository,
+workflow, environment, visibility), then performs the npm token exchange for
+all six packages and prints the registry's raw response for any failure. That
+response names the real problem, such as a missing trusted publisher or a
+claim mismatch. On failure the job also uploads npm debug logs as the
+`npm-logs` artifact. When a publish fails:
 
-- Check the failing run's log for the step output
-  `Publishing with npm trusted publishing (OIDC)`. If it is missing, the OIDC
-  endpoint guard failed or npm is not running with trusted publishing support.
+- Look for the `token exchange OK` / `token exchange FAILED` lines in the
+  failing run. If the preflight step is missing entirely, the run predates this
+  workflow revision; re-run from the current `main`.
 - Re-check on npmjs.com for every package: workflow filename must be exactly
   `release.yml` (case-sensitive, with extension), environment must be `npm`,
   and **Allow npm publish** must be checked. npm does not validate these when

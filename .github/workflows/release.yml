@@ -148,6 +148,8 @@ jobs:
       contents: read
       actions: read
       id-token: write
+    env:
+      npm_config_logs_dir: ${{ github.workspace }}/.npm-logs
     steps:
       - uses: actions/setup-node@v4
         with:
@@ -164,6 +166,8 @@ jobs:
 
       - name: Verify trusted publishing
         shell: bash
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
         run: |
           set -euo pipefail
           if [[ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" || -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]]; then
@@ -173,6 +177,44 @@ jobs:
           fi
           echo "npm $(npm --version), registry $(npm config get registry)"
           npm config list
+
+          # npm only logs OIDC exchange failures at verbose level, which hides the
+          # registry's real rejection reason behind a generic ENEEDAUTH. Perform the
+          # exchange here and print the registry's response verbatim instead.
+          token_json="$(curl -fsS \
+            -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=npm:registry.npmjs.org")"
+          id_token="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).value || "")' "$token_json")"
+          if [[ -z "$id_token" ]]; then
+            echo "GitHub did not return an OIDC token" >&2
+            exit 1
+          fi
+          echo "GitHub OIDC token acquired; claims:"
+          node -e 'const p = JSON.parse(Buffer.from(process.argv[1].split(".")[1], "base64url").toString("utf8")); console.log(JSON.stringify({ aud: p.aud, sub: p.sub, repository: p.repository, repository_visibility: p.repository_visibility, workflow_ref: p.workflow_ref, environment: p.environment, event_name: p.event_name, ref: p.ref }, null, 2))' "$id_token"
+
+          failed=0
+          for tarball in dist/npm/tarballs/*.tgz; do
+            package_name="$(basename "$tarball" .tgz)"
+            package_name="${package_name%-${VERSION}}"
+            body="$(mktemp)"
+            status="$(curl -sS -o "$body" -w '%{http_code}' -X POST \
+              -H "Authorization: Bearer ${id_token}" \
+              "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/${package_name}")"
+            if [[ "$status" -ge 200 && "$status" -lt 300 ]]; then
+              echo "token exchange OK: ${package_name}"
+            else
+              echo "token exchange FAILED: ${package_name} (HTTP ${status})" >&2
+              cat "$body" >&2
+              echo >&2
+              failed=1
+            fi
+            rm -f "$body"
+          done
+          if [[ "$failed" -ne 0 ]]; then
+            echo "Fix the trusted publisher for each package above (workflow release.yml," >&2
+            echo "environment npm, Allow npm publish) and re-run this job." >&2
+            exit 1
+          fi
           echo "Publishing with npm trusted publishing (OIDC)"
 
       - name: Publish platform packages, then main package
@@ -200,7 +242,7 @@ jobs:
             if npm view "${package_name}@${VERSION}" version >/dev/null 2>&1; then
               echo "${package_name}@${VERSION} is already published; skipping"
             else
-              npm publish "$tarball" --access public --provenance
+              npm publish "$tarball" --access public --provenance --loglevel verbose
             fi
           }
 
@@ -208,3 +250,12 @@ jobs:
             publish "$tarball"
           done
           publish "$main"
+
+      - name: Upload npm logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-logs
+          path: ${{ github.workspace }}/.npm-logs
+          if-no-files-found: ignore
+          retention-days: 7
