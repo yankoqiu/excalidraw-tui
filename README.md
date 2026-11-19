@@ -4,8 +4,8 @@
 
 Preview and convert Excalidraw diagrams from the terminal. Point `exv` at an
 `.excalidraw` file to pan, zoom, and inspect it, or export SVG/PNG without
-leaving the shell. Add `--watch` to refresh the terminal preview as an AI coding
-agent writes.
+leaving the shell. Add `--watch` to refresh the terminal preview as the file
+changes on disk.
 
 ![exv previewing the system-design diagram in Windows Terminal](docs/images/terminal-preview.png)
 
@@ -27,10 +27,9 @@ demo.excalidraw | 120% | 10 elements | kitty | ready | hjkl pan  +/- zoom  0 res
 - **Flicker-free updates.** Interactive frames are wrapped in DEC private mode
   2026 synchronized output when the terminal supports it, and bursts of key
   repeats are folded into one redraw. Unsupported terminals ignore the mode.
-- **Atomic-save aware.** Editors and agents often write a temp file and rename
-  it. With `--watch`, `exv` watches the parent directory, debounces 300 ms,
-  validates JSON, and keeps the last good frame or export while a write is
-  incomplete.
+- **Atomic-save aware.** Editors often write a temp file and rename it. With
+  `--watch`, `exv` watches the parent directory, debounces 300 ms, validates
+  JSON, and keeps the last good frame or export while a write is incomplete.
 - **Chinese/CJK ready.** The renderer rewrites font stacks and the rasterizer
   uses system font fallback, so Chinese labels stay readable instead of tofu.
 - **No stray processes.** The worker is killed and reaped on every exit path,
@@ -141,30 +140,13 @@ protocol, load/sync state, and the key legend.
 
 ## Live preview workflow
 
-1. Start `exv --watch diagram.excalidraw` in a terminal pane next to your agent.
-2. Ask the agent to create or update the file.
+1. Start `exv --watch diagram.excalidraw` in a terminal pane next to your editor.
+2. Create or update the file in the editor.
 3. The watcher notices the atomic save, validates the JSON, and replaces the
    frame. Partial JSON shows `Syncing...` and keeps the previous image.
 4. Fix the file if needed — the next valid save appears automatically.
 
 `exv` is read-only with respect to your diagram; it never rewrites the file.
-
-## AI agent integrations
-
-Ready-to-copy rules live in `integrations/`:
-
-- `integrations/CLAUDE.md` — Claude Code
-- `integrations/AGENTS.md` — generic agent format
-- `integrations/qoder-rules.md` — Qoder project rules
-
-Merge the relevant file into your project instructions rather than replacing
-existing ones. The rules cover the JSON skeleton, element/binding fields,
-readable layout limits, validation, and how to preview with `exv`.
-
-Example prompt:
-
-> Create `architecture.excalidraw` showing the request path from CLI to database.
-> Keep it under 10 nodes and validate the JSON. I will preview it with exv.
 
 ## How it works
 

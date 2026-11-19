@@ -4,7 +4,7 @@
 
 在终端里预览和转换 Excalidraw 图表。把 `exv` 指向一个 `.excalidraw` 文件即可
 平移、缩放、检查图表，也可以直接导出 SVG/PNG。加上 `--watch` 后，终端预览
-画面会在 AI 编程助手写入时自动更新。
+画面会随文件变化自动更新。
 
 ![exv 在 Windows Terminal 中预览 system-design 图表](docs/images/terminal-preview.png)
 
@@ -24,7 +24,7 @@ demo.excalidraw | 120% | 10 elements | kitty | ready | hjkl pan  +/- zoom  0 res
   按行分隔的 JSON-RPC 转换文档，因此刷新很快。
 - **刷新不闪屏。** 终端支持时，每帧使用 DEC 私有模式 2026 同步输出；连续按键
   会折叠成一次重绘。不支持该模式的终端会直接忽略。
-- **兼容原子保存。** 编辑器和智能体通常先写临时文件再重命名覆盖。使用
+- **兼容原子保存。** 编辑器通常先写临时文件再重命名覆盖。使用
   `--watch` 时，`exv` 监听父目录，做 300 毫秒防抖并校验 JSON；写入不完整时
   保留上一帧正常画面或导出结果。
 - **中文/CJK 友好。** 渲染器会重写字体栈，光栅化器使用系统字体回退，中文标签
@@ -130,29 +130,13 @@ SVG 导出写入渲染器生成的矢量内容，字体栈会归一化为系统�
 
 ## 实时预览工作流
 
-1. 在 AI 编程助手旁边的终端窗格中执行 `exv --watch diagram.excalidraw`。
-2. 让智能体创建或更新该文件。
+1. 在编辑器旁边的终端窗格中执行 `exv --watch diagram.excalidraw`。
+2. 在编辑器中创建或更新该文件。
 3. 监听器发现原子保存、校验 JSON，然后替换画面。写入不完整时显示
    `Syncing...`，并保留上一张正常图像。
 4. 如需修正，直接改文件；下一次有效保存会自动显示。
 
 `exv` 对图表文件只读，绝不会改写你的 `.excalidraw`。
-
-## AI 智能体集成
-
-可直接复制到项目中的规则位于 `integrations/`：
-
-- `integrations/CLAUDE.md` —— Claude Code
-- `integrations/AGENTS.md` —— 通用智能体格式
-- `integrations/qoder-rules.md` —— Qoder 项目规则
-
-请将这些内容合并进项目说明，而不是粗暴替换现有规则。规则涵盖 JSON 骨架、
-元素与绑定字段、可读性布局限制、校验方式以及如何用 `exv` 预览。
-
-示例提示词：
-
-> 创建 `architecture.excalidraw`，展示从 CLI 到数据库的请求路径。节点不超过
-> 10 个，并校验 JSON。我会用 exv 预览。
 
 ## 实现原理
 

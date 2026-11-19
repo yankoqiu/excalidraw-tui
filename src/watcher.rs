@@ -1,7 +1,7 @@
 //! Parent-directory file watching with debounce.
 //!
 //! Watching the containing directory (instead of the file inode) keeps working
-//! when editors and AI agents save via `write temp file -> rename over target`.
+//! when editors save via `write temp file -> rename over target`.
 
 use std::{
     path::{Path, PathBuf},

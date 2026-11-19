@@ -11,7 +11,7 @@ fn detects_atomic_rename_saves() {
 
     let watcher = Watcher::new(&target, Duration::from_millis(100)).expect("start watcher");
 
-    // Emulate editors/agents that write a temp file and rename it over the
+    // Emulate editors that write a temp file and rename it over the
     // target: watching the file inode alone would stop working here.
     let temp = dir.path().join(".diagram.excalidraw.tmp");
     fs::write(
